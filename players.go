@@ -7,10 +7,15 @@ import (
 )
 
 type Player struct {
-	UUID  string   `json:"uuid"`
-	Name  string   `json:"name"`
-	Cards []string `json:"cards"`
+	UUID  string    `json:"uuid"`
+	Name  string    `json:"name"`
+	Cards *[]string `json:"cards"`
 }
+
+// type GamePlayer struct {
+// 	UUID  string   `json:"uuid"`
+// 	Cards []string `json:"cards"`
+// }
 
 type errResp struct {
 	Msg string `json:"msg"`
@@ -19,13 +24,16 @@ type errResp struct {
 func NewPlayer(name string) Player {
 	return Player{
 		Name:  name,
-		Cards: []string{},
+		Cards: &[]string{},
 	}
 }
 
 // var players = []Player{}
 
 func get_players(c *gin.Context) {
+	lobbyId := c.Param("lobby_id")
+	gameState := lobbies[lobbyId]
+
 	c.IndentedJSON(http.StatusOK, gameState.Players)
 }
 
