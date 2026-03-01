@@ -4,27 +4,29 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Player struct {
-	UUID  string    `json:"uuid"`
-	Name  string    `json:"name"`
-	Cards *[]string `json:"cards"`
+	UUID uuid.UUID `json:"uuid"`
+	Name string    `json:"name"`
 }
 
-// type GamePlayer struct {
-// 	UUID  string   `json:"uuid"`
-// 	Cards []string `json:"cards"`
-// }
+type GamePlayer struct {
+	UUID uuid.UUID `json:"uuid"`
+	Hand []string  `json:"hand"`
+	X    int       `json:"x"`
+	Y    int       `json:"y"`
+}
 
 type errResp struct {
 	Msg string `json:"msg"`
 }
 
-func NewPlayer(name string) Player {
+func NewPlayer(uuid uuid.UUID, name string) Player {
 	return Player{
-		Name:  name,
-		Cards: &[]string{},
+		UUID: uuid,
+		Name: name,
 	}
 }
 
@@ -38,18 +40,26 @@ func get_players(c *gin.Context) {
 }
 
 func create_player(c *gin.Context) {
+	// TODO: Change name param to a body
 	name := c.Param("name")
+	lobby_uuid := c.Param("lobby_uuid")
 
-	new_player := NewPlayer(name)
+	lobby := lobbies[lobby_uuid]
 
-	for _, player := range gameState.Players {
-		if new_player.Name == player.Name {
+	for _, player := range lobby.Players {
+		if name == player.Name {
 			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Player already exists."})
 			return
 		}
 	}
 
-	gameState.Players = append(gameState.Players, new_player)
+	new_player_uuid := uuid.New()
+
+	new_player := NewPlayer(new_player_uuid, name)
+
+	lobby.Players[new_player_uuid] = new_player
+
+	lobbies[lobby_uuid] = lobby
 
 	c.IndentedJSON(http.StatusCreated, new_player)
 }
