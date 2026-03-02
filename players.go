@@ -8,24 +8,24 @@ import (
 )
 
 type Player struct {
-	UUID uuid.UUID `json:"uuid"`
-	Name string    `json:"name"`
+	UUID string `json:"uuid"`
+	Name string `json:"name"`
 }
 
 type GamePlayer struct {
-	UUID uuid.UUID `json:"uuid"`
-	Hand []string  `json:"hand"`
-	X    int       `json:"x"`
-	Y    int       `json:"y"`
+	UUID string   `json:"uuid"`
+	Hand []string `json:"hand"`
+	X    int      `json:"x"`
+	Y    int      `json:"y"`
 }
 
 type errResp struct {
 	Msg string `json:"msg"`
 }
 
-func NewPlayer(uuid uuid.UUID, name string) Player {
+func NewPlayer(player_uuid string, name string) Player {
 	return Player{
-		UUID: uuid,
+		UUID: player_uuid,
 		Name: name,
 	}
 }
@@ -33,10 +33,11 @@ func NewPlayer(uuid uuid.UUID, name string) Player {
 // var players = []Player{}
 
 func get_players(c *gin.Context) {
-	lobbyId := c.Param("lobby_id")
-	gameState := lobbies[lobbyId]
+	lobbyId := c.Param("lobby_uuid")
+	lobby := lobbies[lobbyId]
+	players := lobby.Players
 
-	c.IndentedJSON(http.StatusOK, gameState.Players)
+	c.IndentedJSON(http.StatusOK, players)
 }
 
 func create_player(c *gin.Context) {
@@ -46,6 +47,7 @@ func create_player(c *gin.Context) {
 
 	lobby := lobbies[lobby_uuid]
 
+	// check if player already exists
 	for _, player := range lobby.Players {
 		if name == player.Name {
 			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Player already exists."})
@@ -53,11 +55,29 @@ func create_player(c *gin.Context) {
 		}
 	}
 
-	new_player_uuid := uuid.New()
-
+	// create new player
+	new_player_uuid := uuid.New().String()
 	new_player := NewPlayer(new_player_uuid, name)
-
 	lobby.Players[new_player_uuid] = new_player
+
+	// edit player order to add newly created player to last
+	if lobby.FirstPlayer == nil {
+		// if no one is added, set the new player to point to the terminator
+		lobby.PlayerOrder[new_player_uuid] = nil
+		lobby.FirstPlayer = &new_player_uuid
+	} else {
+		for player_uuid, next_player_uuid := range lobby.PlayerOrder {
+			// if player is last,
+			//   - set player to new player
+			//   - set new player to terminator
+			if next_player_uuid == nil {
+				lobby.PlayerOrder[player_uuid] = &new_player_uuid
+				lobby.PlayerOrder[new_player_uuid] = nil
+
+				break
+			}
+		}
+	}
 
 	lobbies[lobby_uuid] = lobby
 
