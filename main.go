@@ -33,6 +33,13 @@ func init() {
 // END //
 
 func main() {
+	devMode := os.Getenv("MODE") == "dev"
+	stagingMode := os.Getenv("MODE") == "staging"
+
+	if !devMode {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	router := gin.Default()
 
 	// lobby endpoints
@@ -47,10 +54,13 @@ func main() {
 
 	router.POST("/lobbies/:lobby_uuid/players/:name", create_player)
 
-	releaseMode := os.Getenv("GIN_MODE")
+	router.DELETE("/lobbies/:lobby_uuid/players/:player_uuid", delete_player)
 
-	// only allow loopback connections on debug
-	if releaseMode == "release" {
+	// game endpoints
+	router.POST("/lobbies/:lobby_uuid/game", create_game)
+
+	// only allow loopback connections on dev
+	if !devMode || stagingMode {
 		router.Run(":8080")
 	} else {
 		router.Run("127.0.0.1:8080")

@@ -12,13 +12,6 @@ type Player struct {
 	Name string `json:"name"`
 }
 
-type GamePlayer struct {
-	UUID string   `json:"uuid"`
-	Hand []string `json:"hand"`
-	X    int      `json:"x"`
-	Y    int      `json:"y"`
-}
-
 func NewPlayer(player_uuid string, name string) Player {
 	return Player{
 		UUID: player_uuid,
@@ -109,4 +102,43 @@ func create_player(c *gin.Context) {
 	lobbies[lobby_uuid] = lobby
 
 	c.IndentedJSON(http.StatusCreated, new_player)
+}
+
+func delete_player(c *gin.Context) {
+	lobby_uuid := c.Param("lobby_uuid")
+	player_uuid := c.Param("player_uuid")
+
+	lobby, ok := lobbies[lobby_uuid]
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+		return
+	}
+
+	players := lobby.Players
+
+	_, ok = players[player_uuid]
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Player not found"})
+		return
+	}
+
+	player_order := lobby.PlayerOrder
+
+	next_player_referenced := player_order[player_uuid]
+
+	for current_player_uuid, next_player_uuid := range player_order {
+		if next_player_uuid == &player_uuid {
+			player_order[current_player_uuid] = next_player_referenced
+		}
+	}
+
+	delete(player_order, player_uuid)
+	delete(players, player_uuid)
+
+	lobby.PlayerOrder = player_order
+	lobby.Players = players
+
+	lobbies[lobby_uuid] = lobby
+
+	c.Status(http.StatusNoContent)
 }

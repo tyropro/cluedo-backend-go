@@ -7,6 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
+const MAX_CHARACTERS int = 6
+const MAX_WEAPONS int = 6
+const MAX_ROOMS int = 9
+
 type Lobby struct {
 	UUID string `json:"uuid"`
 
@@ -18,12 +22,10 @@ type Lobby struct {
 	GameState *GameState   `json:"game_state"`
 }
 
-type LobbyOptions struct{}
-
-type GameState struct {
-	Players           map[string]GamePlayer `json:"players"`
-	Solution          []string              `json:"solution"`
-	CurrentPlayerUUID string                `json:"current_player_uuid"`
+type LobbyOptions struct {
+	Characters [MAX_CHARACTERS]string
+	Weapons    [MAX_WEAPONS]string
+	Rooms      [MAX_ROOMS]string
 }
 
 func NewLobby(lobby_uuid string) Lobby {
@@ -32,16 +34,42 @@ func NewLobby(lobby_uuid string) Lobby {
 		Players:     make(map[string]Player),
 		PlayerOrder: make(map[string]*string),
 		FirstPlayer: nil,
-		Options:     LobbyOptions{},
+		Options:     DefaultLobbyOptions(),
 		GameState:   nil,
 	}
 }
 
-func NewGameState(first_player string) GameState {
-	return GameState{
-		Players:           make(map[string]GamePlayer),
-		Solution:          []string{},
-		CurrentPlayerUUID: first_player,
+func DefaultLobbyOptions() LobbyOptions {
+	return LobbyOptions{
+		Characters: [...]string{
+			"Rev. Green",
+			"Col. Mustard",
+			"Dr. Orchid",
+			"Mrs. Peacock",
+			"Prof. Plum",
+			"Miss Scarlett",
+		},
+
+		Weapons: [...]string{
+			"Candlestick",
+			"Dagger",
+			"Lead Pipe",
+			"Revolver",
+			"Rope",
+			"Wrench",
+		},
+
+		Rooms: [...]string{
+			"Ballroom",
+			"Billiard Room",
+			"Conservatory",
+			"Dining Room",
+			"Hall",
+			"Kitchen",
+			"Library",
+			"Lounge",
+			"Study",
+		},
 	}
 }
 
