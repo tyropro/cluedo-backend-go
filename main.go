@@ -1,55 +1,20 @@
 package main
 
 import (
-	"fmt"
+	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	_ "github.com/joho/godotenv/autoload" // for .env
 )
-
-type Lobby struct {
-	UUID string `json:"uuid"`
-
-	Players     map[string]Player  `json:"players"`
-	PlayerOrder map[string]*string `json:"player_order"`
-	FirstPlayer *string            `json:"first_player"`
-
-	Options   LobbyOptions `json:"options"`
-	GameState *GameState   `json:"game_state"`
-}
-
-type LobbyOptions struct{}
-
-type GameState struct {
-	Players           map[string]GamePlayer `json:"players"`
-	Solution          []string              `json:"solution"`
-	CurrentPlayerUUID string                `json:"current_player_uuid"`
-}
-
-func NewLobby(lobby_uuid string) Lobby {
-	return Lobby{
-		UUID:        lobby_uuid,
-		Players:     make(map[string]Player),
-		PlayerOrder: make(map[string]*string),
-		FirstPlayer: nil,
-		Options:     LobbyOptions{},
-		GameState:   nil,
-	}
-}
-
-func NewGameState(first_player string) GameState {
-	return GameState{
-		Players:           make(map[string]GamePlayer),
-		Solution:          []string{},
-		CurrentPlayerUUID: first_player,
-	}
-}
-
-// var gameState GameState
 
 var lobbies map[string]Lobby
 
+// all for dev as of now
+// START //
 func init() {
+
 	lobbies = make(map[string]Lobby)
 
 	lobby_uuid := uuid.New().String()
@@ -59,29 +24,29 @@ func init() {
 	lobbies[lobby_uuid] = new_lobby
 
 	// print out for dev purposes
-	fmt.Println(lobby_uuid)
+	log.Println(lobby_uuid)
 }
 
-// func getGameState(c *gin.Context) {
-// 	id := c.Param("id")
-
-// 	lobby_uuid
-
-// 	game := lobbies[id]
-
-// 	c.IndentedJSON(http.StatusOK, game)
-// }
+// END //
 
 func main() {
+
 	router := gin.Default()
+
+	// lobby endpoints
+	router.GET("/", get_lobbies)
 
 	// players endpoints
 	router.GET("/:lobby_uuid/players", get_players)
 
 	router.POST("/:lobby_uuid/players/:name", create_player)
 
-	// game endpoints
-	// router.GET("/game/:id", getGameState)
+	releaseMode := os.Getenv("GIN_MODE")
 
-	router.Run("127.0.0.1:8080")
+	// only allow loopback connections on debug
+	if releaseMode == "release" {
+		router.Run(":8080")
+	} else {
+		router.Run("127.0.0.1:8080")
+	}
 }
