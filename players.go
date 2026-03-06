@@ -19,10 +19,6 @@ type GamePlayer struct {
 	Y    int      `json:"y"`
 }
 
-type errResp struct {
-	Msg string `json:"msg"`
-}
-
 func NewPlayer(player_uuid string, name string) Player {
 	return Player{
 		UUID: player_uuid,
@@ -33,11 +29,37 @@ func NewPlayer(player_uuid string, name string) Player {
 // var players = []Player{}
 
 func get_players(c *gin.Context) {
-	lobbyId := c.Param("lobby_uuid")
-	lobby := lobbies[lobbyId]
+	lobby_uuid := c.Param("lobby_uuid")
+
+	lobby, ok := lobbies[lobby_uuid]
+
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+		return
+	}
+
 	players := lobby.Players
 
 	c.IndentedJSON(http.StatusOK, players)
+}
+
+func get_player(c *gin.Context) {
+	lobby_uuid := c.Param("lobby_uuid")
+	player_uuid := c.Param("player_uuid")
+
+	lobby, ok := lobbies[lobby_uuid]
+
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+	}
+
+	player, ok := lobby.Players[player_uuid]
+
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Player not found"})
+	}
+
+	c.IndentedJSON(http.StatusOK, player)
 }
 
 func create_player(c *gin.Context) {
@@ -45,12 +67,17 @@ func create_player(c *gin.Context) {
 	name := c.Param("name")
 	lobby_uuid := c.Param("lobby_uuid")
 
-	lobby := lobbies[lobby_uuid]
+	lobby, ok := lobbies[lobby_uuid]
+
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+		return
+	}
 
 	// check if player already exists
 	for _, player := range lobby.Players {
 		if name == player.Name {
-			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Player already exists."})
+			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Player already exists"})
 			return
 		}
 	}

@@ -9,12 +9,15 @@ import (
 	_ "github.com/joho/godotenv/autoload" // for .env
 )
 
+type errResp struct {
+	Msg string `json:"msg"`
+}
+
 var lobbies map[string]Lobby
 
 // all for dev as of now
 // START //
 func init() {
-
 	lobbies = make(map[string]Lobby)
 
 	lobby_uuid := uuid.New().String()
@@ -30,16 +33,19 @@ func init() {
 // END //
 
 func main() {
-
 	router := gin.Default()
 
 	// lobby endpoints
-	router.GET("/", get_lobbies)
+	router.GET("/lobbies", get_lobbies)
+	router.GET("/lobbies/:lobby_uuid", get_lobby)
+
+	router.POST("/lobbies", create_lobby)
 
 	// players endpoints
-	router.GET("/:lobby_uuid/players", get_players)
+	router.GET("/lobbies/:lobby_uuid/players", get_players)
+	router.GET("/lobbies/:lobby_uuid/players/:player_uuid", get_player)
 
-	router.POST("/:lobby_uuid/players/:name", create_player)
+	router.POST("/lobbies/:lobby_uuid/players/:name", create_player)
 
 	releaseMode := os.Getenv("GIN_MODE")
 
