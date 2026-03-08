@@ -126,9 +126,13 @@ func delete_player(c *gin.Context) {
 
 	next_player_referenced := player_order[player_uuid]
 
-	for current_player_uuid, next_player_uuid := range player_order {
-		if next_player_uuid == &player_uuid {
-			player_order[current_player_uuid] = next_player_referenced
+	if *lobby.FirstPlayer == player_uuid {
+		lobby.FirstPlayer = next_player_referenced
+	} else {
+		for current_player_uuid, next_player_uuid := range player_order {
+			if *next_player_uuid == player_uuid {
+				player_order[current_player_uuid] = next_player_referenced
+			}
 		}
 	}
 
