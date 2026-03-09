@@ -195,3 +195,81 @@ func delete_game(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+type SuggestionRequest struct {
+	PlayerUUID string `json:"player_uuid"`
+	Cards      struct {
+		Character string `json:"character"`
+		Weapon    string `json:"weapon"`
+		Room      string `json:"room"`
+	} `json:"cards"`
+}
+
+type SuggestionResponse struct {
+	PlayerUUID string `json:"player_uuid"`
+	Card       string `json:"card"`
+}
+
+func make_suggestion(c *gin.Context) {
+	lobby_uuid := c.Param("lobby_uuid")
+
+	lobby, ok := lobbies[lobby_uuid]
+
+	// quit if lobby not found
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+		return
+	}
+
+	// quit if game not created
+	if lobby.GameState == nil {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Game not found"})
+		return
+	}
+
+	var req_body SuggestionRequest
+
+	err := c.ShouldBindJSON(&req_body)
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Failed to marshall JSON"})
+		return
+	}
+
+	_, ok = lobby.Players[req_body.PlayerUUID]
+
+	// quit if player requesting suggestion is invalid
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Player not found"})
+		return
+	}
+
+	player_holding_card_uuid, card := findCard(req_body, lobby.GameState.Players)
+
+	if player_holding_card_uuid == nil {
+		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Card not found"})
+		return
+	}
+
+	resp := SuggestionResponse{
+		PlayerUUID: *player_holding_card_uuid,
+		Card:       *card,
+	}
+
+	c.IndentedJSON(http.StatusOK, resp)
+}
+
+func findCard(req_body SuggestionRequest, players map[string]GamePlayer) (*string, *string) {
+	for uuid, player := range players {
+		for _, card := range player.Hand {
+			has_character := card == req_body.Cards.Character
+			has_weapon := card == req_body.Cards.Weapon
+			has_room := card == req_body.Cards.Room
+
+			if has_character || has_weapon || has_room {
+				return &uuid, &card
+			}
+		}
+	}
+
+	return nil, nil
+}

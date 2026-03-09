@@ -77,6 +77,7 @@ func setupRouter() *gin.Engine {
 
 	// game endpoints
 	router.POST("/lobbies/:lobby_uuid/game", create_game)
+	router.POST("/lobbies/:lobby_uuid/suggest", make_suggestion)
 
 	router.DELETE("/lobbies/:lobby_uuid/game", delete_game)
 

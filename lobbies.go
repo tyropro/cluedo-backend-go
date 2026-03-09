@@ -23,9 +23,9 @@ type Lobby struct {
 }
 
 type LobbyOptions struct {
-	Characters [MAX_CHARACTERS]string
-	Weapons    [MAX_WEAPONS]string
-	Rooms      [MAX_ROOMS]string
+	Characters [MAX_CHARACTERS]string `json:"character"`
+	Weapons    [MAX_WEAPONS]string    `json:"weapons"`
+	Rooms      [MAX_ROOMS]string      `json:"rooms"`
 }
 
 func NewLobby(lobby_uuid string) Lobby {
