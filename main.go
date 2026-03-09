@@ -37,7 +37,7 @@ func main() {
 	devMode, stagingMode := getEnv()
 
 	// keep debug gin mode when in dev mode or staging
-	if !devMode || !stagingMode {
+	if !devMode && !stagingMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
