@@ -34,13 +34,31 @@ func init() {
 // END //
 
 func main() {
-	devMode := os.Getenv("MODE") == "dev"
-	stagingMode := os.Getenv("MODE") == "staging"
+	devMode, stagingMode := getEnv()
 
-	if !devMode {
+	// keep debug gin mode when in dev mode or staging
+	if !devMode || !stagingMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	router := setupRouter()
+
+	// only allow loopback connections on dev
+	if !devMode || stagingMode {
+		router.Run(":8080")
+	} else {
+		router.Run("127.0.0.1:8080")
+	}
+}
+
+func getEnv() (bool, bool) {
+	devMode := os.Getenv("MODE") == "dev"
+	stagingMode := os.Getenv("MODE") == "staging"
+
+	return devMode, stagingMode
+}
+
+func setupRouter() *gin.Engine {
 	router := gin.Default()
 
 	// lobby endpoints
@@ -62,10 +80,5 @@ func main() {
 
 	router.DELETE("/lobbies/:lobby_uuid/game", delete_game)
 
-	// only allow loopback connections on dev
-	if !devMode || stagingMode {
-		router.Run(":8080")
-	} else {
-		router.Run("127.0.0.1:8080")
-	}
+	return router
 }
