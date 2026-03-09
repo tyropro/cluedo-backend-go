@@ -259,6 +259,8 @@ func make_suggestion(c *gin.Context) {
 }
 
 func findCard(req_body SuggestionRequest, players map[string]GamePlayer) (*string, *string) {
+	// TODO: Fix this to use player order instead of iteration through the players.
+
 	for uuid, player := range players {
 		for _, card := range player.Hand {
 			has_character := card == req_body.Cards.Character
