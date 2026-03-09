@@ -169,5 +169,29 @@ func create_game(c *gin.Context) {
 
 	lobby.CreateGame()
 
+	lobbies[lobby_uuid] = lobby
+
 	c.IndentedJSON(http.StatusCreated, lobby.GameState)
+}
+
+func delete_game(c *gin.Context) {
+	lobby_uuid := c.Param("lobby_uuid")
+
+	lobby, ok := lobbies[lobby_uuid]
+
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+		return
+	}
+
+	if lobby.GameState == nil {
+		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Game not found"})
+		return
+	}
+
+	lobby.GameState = nil
+
+	lobbies[lobby_uuid] = lobby
+
+	c.Status(http.StatusNoContent)
 }

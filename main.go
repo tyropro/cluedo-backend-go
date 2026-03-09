@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
 	_ "github.com/joho/godotenv/autoload" // for .env
 )
 
@@ -58,6 +59,8 @@ func main() {
 
 	// game endpoints
 	router.POST("/lobbies/:lobby_uuid/game", create_game)
+
+	router.DELETE("/lobbies/:lobby_uuid/game", delete_game)
 
 	// only allow loopback connections on dev
 	if !devMode || stagingMode {
