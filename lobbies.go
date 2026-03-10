@@ -11,6 +11,8 @@ const MAX_CHARACTERS int = 6
 const MAX_WEAPONS int = 6
 const MAX_ROOMS int = 9
 
+const MAX_LOBBY_SIZE int = MAX_CHARACTERS
+
 type Lobby struct {
 	UUID string `json:"uuid"`
 

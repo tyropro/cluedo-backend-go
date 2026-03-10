@@ -167,6 +167,18 @@ func create_game(c *gin.Context) {
 		return
 	}
 
+	// lobby size checks
+	if len(lobby.Players) < 2 {
+		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not enough players"})
+		return
+	}
+
+	// TODO: we can fix this by limiting lobby size instead of checking on game creation
+	// if len(lobby.Players) > 6 {
+	// 	c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Too many players"})
+	// 	return
+	// }
+
 	lobby.CreateGame()
 
 	lobbies[lobby_uuid] = lobby
@@ -206,8 +218,9 @@ type SuggestionRequest struct {
 }
 
 type SuggestionResponse struct {
-	PlayerUUID string `json:"player_uuid"`
-	Card       string `json:"card"`
+	Msg        string   `json:"msg"`
+	PlayerUUID string   `json:"player_uuid"`
+	Cards      []string `json:"card"`
 }
 
 func make_suggestion(c *gin.Context) {
@@ -243,34 +256,67 @@ func make_suggestion(c *gin.Context) {
 		return
 	}
 
-	player_holding_card_uuid, card := findCard(req_body, lobby.GameState.Players)
+	// quit if the player requesting suggestion is not the current player
+	if req_body.PlayerUUID != lobby.GameState.CurrentPlayerUUID {
+		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not this user's turn"})
+		return
+	}
+
+	player_holding_card_uuid, cards := findCard(req_body, lobby.GameState)
 
 	if player_holding_card_uuid == nil {
-		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Card not found"})
+		resp := SuggestionResponse{
+			Msg:        "Card not found",
+			PlayerUUID: "null",
+			Cards:      []string{},
+		}
+
+		c.IndentedJSON(http.StatusNotFound, resp)
 		return
 	}
 
 	resp := SuggestionResponse{
+		Msg:        "Card Found",
 		PlayerUUID: *player_holding_card_uuid,
-		Card:       *card,
+		Cards:      *cards,
 	}
 
 	c.IndentedJSON(http.StatusOK, resp)
 }
 
-func findCard(req_body SuggestionRequest, players map[string]GamePlayer) (*string, *string) {
-	// TODO: Fix this to use player order instead of iteration through the players.
+func findCard(req_body SuggestionRequest, gamestate *GameState) (*string, *[]string) {
+	checking_player_uuid := gamestate.PlayerOrder[req_body.PlayerUUID]
 
-	for uuid, player := range players {
-		for _, card := range player.Hand {
+	var held_cards []string
+	no_checks := 0
+
+	for {
+		for _, card := range gamestate.Players[checking_player_uuid].Hand {
 			has_character := card == req_body.Cards.Character
 			has_weapon := card == req_body.Cards.Weapon
 			has_room := card == req_body.Cards.Room
 
 			if has_character || has_weapon || has_room {
-				return &uuid, &card
+				held_cards = append(held_cards, card)
 			}
 		}
+
+		if len(held_cards) != 0 {
+			return &checking_player_uuid, &held_cards
+		}
+
+		checking_player_uuid = gamestate.PlayerOrder[checking_player_uuid]
+
+		if checking_player_uuid == req_body.PlayerUUID {
+			break
+		}
+
+		// failsafe in case of infinite loop
+		if no_checks > len(gamestate.Players) {
+			break
+		}
+
+		no_checks++
 	}
 
 	return nil, nil

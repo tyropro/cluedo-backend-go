@@ -67,6 +67,12 @@ func create_player(c *gin.Context) {
 		return
 	}
 
+	// stop player addition if lobby full
+	if len(lobby.Players) >= MAX_LOBBY_SIZE {
+		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Lobby full"})
+		return
+	}
+
 	// check if player already exists
 	for _, player := range lobby.Players {
 		if name == player.Name {
