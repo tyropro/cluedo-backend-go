@@ -288,9 +288,8 @@ func findCard(req_body SuggestionRequest, gamestate *GameState) (*string, *[]str
 	checking_player_uuid := gamestate.PlayerOrder[req_body.PlayerUUID]
 
 	var held_cards []string
-	no_checks := 0
 
-	for {
+	for range len(gamestate.Players) - 1 { // limit number of checks to number of players - 1 (excluding original player)
 		for _, card := range gamestate.Players[checking_player_uuid].Hand {
 			has_character := card == req_body.Cards.Character
 			has_weapon := card == req_body.Cards.Weapon
@@ -306,17 +305,6 @@ func findCard(req_body SuggestionRequest, gamestate *GameState) (*string, *[]str
 		}
 
 		checking_player_uuid = gamestate.PlayerOrder[checking_player_uuid]
-
-		if checking_player_uuid == req_body.PlayerUUID {
-			break
-		}
-
-		// failsafe in case of infinite loop
-		if no_checks > len(gamestate.Players) {
-			break
-		}
-
-		no_checks++
 	}
 
 	return nil, nil
