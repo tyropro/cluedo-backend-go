@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -12,6 +13,11 @@ const MAX_WEAPONS int = 6
 const MAX_ROOMS int = 9
 
 const MAX_LOBBY_SIZE int = MAX_CHARACTERS
+
+type LobbyManager struct {
+	Lobbies map[string]Lobby `json:"lobbies"`
+	mu      sync.RWMutex     `json:"-"`
+}
 
 type Lobby struct {
 	UUID string `json:"uuid"`
@@ -30,6 +36,12 @@ type LobbyOptions struct {
 	Rooms      [MAX_ROOMS]string      `json:"rooms"`
 
 	NoDiceFaces int `json:"no_dice_faces"`
+}
+
+func NewLobbyManager() *LobbyManager {
+	return &LobbyManager{
+		Lobbies: make(map[string]Lobby),
+	}
 }
 
 func NewLobby(lobby_uuid string) Lobby {
@@ -83,56 +95,71 @@ type GetLobbyResponse struct {
 	PlayerCount int    `json:"player_count"`
 }
 
-func get_lobbies(c *gin.Context) {
-	var response []GetLobbyResponse
+func get_lobbies(lobby_manager *LobbyManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		lobby_manager.mu.RLock()
+		defer lobby_manager.mu.RUnlock()
 
-	for uuid, lobby := range lobbies {
+		var response []GetLobbyResponse
+
+		for uuid, lobby := range lobby_manager.Lobbies {
+			player_count := len(lobby.Players)
+
+			lobby_response := GetLobbyResponse{
+				UUID:        uuid,
+				PlayerCount: player_count,
+			}
+
+			response = append(response, lobby_response)
+		}
+
+		c.IndentedJSON(http.StatusOK, response)
+	}
+}
+
+func get_lobby(lobby_manager *LobbyManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		lobby_manager.mu.RLock()
+		defer lobby_manager.mu.RUnlock()
+
+		lobby_uuid := c.Param("lobby_uuid")
+
+		lobby, ok := lobby_manager.Lobbies[lobby_uuid]
+
+		if !ok {
+			c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+			return
+		}
+
 		player_count := len(lobby.Players)
-
-		lobby_response := GetLobbyResponse{
-			UUID:        uuid,
+		response := GetLobbyResponse{
+			UUID:        lobby_uuid,
 			PlayerCount: player_count,
 		}
 
-		response = append(response, lobby_response)
+		c.IndentedJSON(http.StatusOK, response)
 	}
-
-	c.IndentedJSON(http.StatusOK, response)
-}
-
-func get_lobby(c *gin.Context) {
-	lobby_uuid := c.Param("lobby_uuid")
-
-	lobby, ok := lobbies[lobby_uuid]
-
-	if !ok {
-		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
-		return
-	}
-
-	player_count := len(lobby.Players)
-	response := GetLobbyResponse{
-		UUID:        lobby_uuid,
-		PlayerCount: player_count,
-	}
-
-	c.IndentedJSON(http.StatusOK, response)
 }
 
 type CreateLobbyResponse struct {
 	UUID string `json:"uuid"`
 }
 
-func create_lobby(c *gin.Context) {
-	lobby_uuid := uuid.New().String()
+func create_lobby(lobby_manager *LobbyManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		lobby_manager.mu.Lock()
+		defer lobby_manager.mu.Unlock()
 
-	new_lobby := NewLobby(lobby_uuid)
+		lobby_uuid := uuid.New().String()
 
-	lobbies[lobby_uuid] = new_lobby
+		new_lobby := NewLobby(lobby_uuid)
 
-	response := CreateLobbyResponse{
-		UUID: lobby_uuid,
+		lobby_manager.Lobbies[lobby_uuid] = new_lobby
+
+		response := CreateLobbyResponse{
+			UUID: lobby_uuid,
+		}
+
+		c.IndentedJSON(http.StatusCreated, response)
 	}
-
-	c.IndentedJSON(http.StatusCreated, response)
 }

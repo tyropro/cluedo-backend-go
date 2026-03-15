@@ -1,11 +1,9 @@
 package main
 
 import (
-	"log"
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	_ "github.com/joho/godotenv/autoload" // for .env
 )
@@ -14,37 +12,38 @@ type errResp struct {
 	Msg string `json:"msg"`
 }
 
-var lobbies map[string]Lobby
+// var lobbies map[string]Lobby
 
 // all for dev as of now
 // START //
-func init() {
-	lobbies = make(map[string]Lobby)
+// func init() {
+// 	lobbies = make(map[string]Lobby)
 
-	lobby_uuid := uuid.New().String()
+// 	lobby_uuid := uuid.New().String()
 
-	new_lobby := NewLobby(lobby_uuid)
+// 	new_lobby := NewLobby(lobby_uuid)
 
-	lobbies[lobby_uuid] = new_lobby
+// 	lobbies[lobby_uuid] = new_lobby
 
-	// print out for dev purposes
-	log.Println(lobby_uuid)
-}
+// 	// print out for dev purposes
+// 	log.Println(lobby_uuid)
+// }
 
 // END //
 
 func main() {
-	devMode, stagingMode := getEnv()
+	dev_mode, staging_mode := getEnv()
 
 	// keep debug gin mode when in dev mode or staging
-	if !devMode && !stagingMode {
+	if !dev_mode && !staging_mode {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	router := setupRouter()
+	lobby_manager := NewLobbyManager()
+	router := setupRouter(lobby_manager)
 
 	// only allow loopback connections on dev
-	if !devMode || stagingMode {
+	if !dev_mode || staging_mode {
 		router.Run(":8080")
 	} else {
 		router.Run("127.0.0.1:8080")
@@ -52,35 +51,35 @@ func main() {
 }
 
 func getEnv() (bool, bool) {
-	devMode := os.Getenv("MODE") == "dev"
-	stagingMode := os.Getenv("MODE") == "staging"
+	dev_mode := os.Getenv("MODE") == "dev"
+	staging_mode := os.Getenv("MODE") == "staging"
 
-	return devMode, stagingMode
+	return dev_mode, staging_mode
 }
 
-func setupRouter() *gin.Engine {
+func setupRouter(lobby_manager *LobbyManager) *gin.Engine {
 	router := gin.Default()
 
 	// lobby endpoints
-	router.GET("/lobbies", get_lobbies)
-	router.GET("/lobbies/:lobby_uuid", get_lobby)
+	router.GET("/lobbies", get_lobbies(lobby_manager))
+	router.GET("/lobbies/:lobby_uuid", get_lobby(lobby_manager))
 
-	router.POST("/lobbies", create_lobby)
+	router.POST("/lobbies", create_lobby(lobby_manager))
 
 	// players endpoints
-	router.GET("/lobbies/:lobby_uuid/players", get_players)
-	router.GET("/lobbies/:lobby_uuid/players/:player_uuid", get_player)
+	router.GET("/lobbies/:lobby_uuid/players", get_players(lobby_manager))
+	router.GET("/lobbies/:lobby_uuid/players/:player_uuid", get_player(lobby_manager))
 
-	router.POST("/lobbies/:lobby_uuid/players/:name", create_player)
+	router.POST("/lobbies/:lobby_uuid/players/:name", create_player(lobby_manager))
 
-	router.DELETE("/lobbies/:lobby_uuid/players/:player_uuid", delete_player)
+	router.DELETE("/lobbies/:lobby_uuid/players/:player_uuid", delete_player(lobby_manager))
 
 	// game endpoints
-	router.POST("/lobbies/:lobby_uuid/game", create_game)
-	router.POST("/lobbies/:lobby_uuid/suggest", make_suggestion)
-	router.POST("/lobbies/:lobby_uuid/roll/:player_uuid", roll_dice)
+	router.POST("/lobbies/:lobby_uuid/game", create_game(lobby_manager))
+	router.POST("/lobbies/:lobby_uuid/suggest", make_suggestion(lobby_manager))
+	router.POST("/lobbies/:lobby_uuid/roll/:player_uuid", roll_dice(lobby_manager))
 
-	router.DELETE("/lobbies/:lobby_uuid/game", delete_game)
+	router.DELETE("/lobbies/:lobby_uuid/game", delete_game(lobby_manager))
 
 	return router
 }

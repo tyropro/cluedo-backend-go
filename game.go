@@ -152,60 +152,70 @@ func (l *Lobby) generateSolution() (Solution, []string) {
 	return solution, remaining_cards
 }
 
-func create_game(c *gin.Context) {
-	lobby_uuid := c.Param("lobby_uuid")
+func create_game(lobby_manager *LobbyManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		lobby_manager.mu.Lock()
+		defer lobby_manager.mu.Unlock()
 
-	lobby, ok := lobbies[lobby_uuid]
+		lobby_uuid := c.Param("lobby_uuid")
 
-	if !ok {
-		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
-		return
+		lobby, ok := lobby_manager.Lobbies[lobby_uuid]
+
+		if !ok {
+			c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+			return
+		}
+
+		if lobby.GameState != nil {
+			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Game already exists"})
+			return
+		}
+
+		// lobby size checks
+		if len(lobby.Players) < 2 {
+			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not enough players"})
+			return
+		}
+
+		// TODO: we can fix this by limiting lobby size instead of checking on game creation
+		// if len(lobby.Players) > 6 {
+		// 	c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Too many players"})
+		// 	return
+		// }
+
+		lobby.CreateGame()
+
+		lobby_manager.Lobbies[lobby_uuid] = lobby
+
+		c.IndentedJSON(http.StatusCreated, lobby.GameState)
 	}
-
-	if lobby.GameState != nil {
-		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Game already exists"})
-		return
-	}
-
-	// lobby size checks
-	if len(lobby.Players) < 2 {
-		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not enough players"})
-		return
-	}
-
-	// TODO: we can fix this by limiting lobby size instead of checking on game creation
-	// if len(lobby.Players) > 6 {
-	// 	c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Too many players"})
-	// 	return
-	// }
-
-	lobby.CreateGame()
-
-	lobbies[lobby_uuid] = lobby
-
-	c.IndentedJSON(http.StatusCreated, lobby.GameState)
 }
 
-func delete_game(c *gin.Context) {
-	lobby_uuid := c.Param("lobby_uuid")
+func delete_game(lobby_manager *LobbyManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		lobby_manager.mu.Lock()
+		defer lobby_manager.mu.Unlock()
 
-	lobby, ok := lobbies[lobby_uuid]
+		lobby_uuid := c.Param("lobby_uuid")
 
-	if !ok {
-		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
-		return
+		lobby, ok := lobby_manager.Lobbies[lobby_uuid]
+
+		if !ok {
+			c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+			return
+		}
+
+		if lobby.GameState == nil {
+			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Game not found"})
+			return
+		}
+
+		lobby.GameState = nil
+
+		lobby_manager.Lobbies[lobby_uuid] = lobby
+
+		c.Status(http.StatusNoContent)
 	}
-
-	if lobby.GameState == nil {
-		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Game not found"})
-		return
-	}
-
-	lobby.GameState = nil
-
-	lobbies[lobby_uuid] = lobby
-
-	c.Status(http.StatusNoContent)
 }
 
 type SuggestionRequest struct {
@@ -223,65 +233,70 @@ type SuggestionResponse struct {
 	Cards      []string `json:"card"`
 }
 
-func make_suggestion(c *gin.Context) {
-	lobby_uuid := c.Param("lobby_uuid")
+func make_suggestion(lobby_manager *LobbyManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		lobby_manager.mu.RLock()
+		defer lobby_manager.mu.RUnlock()
 
-	lobby, ok := lobbies[lobby_uuid]
+		lobby_uuid := c.Param("lobby_uuid")
 
-	// quit if lobby not found
-	if !ok {
-		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
-		return
-	}
+		lobby, ok := lobby_manager.Lobbies[lobby_uuid]
 
-	// quit if game not created
-	if lobby.GameState == nil {
-		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Game not found"})
-		return
-	}
-
-	var req_body SuggestionRequest
-
-	err := c.ShouldBindJSON(&req_body)
-	if err != nil {
-		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Failed to marshall JSON"})
-		return
-	}
-
-	_, ok = lobby.Players[req_body.PlayerUUID]
-
-	// quit if player requesting suggestion is invalid
-	if !ok {
-		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Player not found"})
-		return
-	}
-
-	// quit if the player requesting suggestion is not the current player
-	if req_body.PlayerUUID != lobby.GameState.CurrentPlayerUUID {
-		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not this user's turn"})
-		return
-	}
-
-	player_holding_card_uuid, cards := findCard(req_body, lobby.GameState)
-
-	if player_holding_card_uuid == nil {
-		resp := SuggestionResponse{
-			Msg:        "Card not found",
-			PlayerUUID: "null",
-			Cards:      []string{},
+		// quit if lobby not found
+		if !ok {
+			c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+			return
 		}
 
-		c.IndentedJSON(http.StatusNotFound, resp)
-		return
-	}
+		// quit if game not created
+		if lobby.GameState == nil {
+			c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Game not found"})
+			return
+		}
 
-	resp := SuggestionResponse{
-		Msg:        "Card Found",
-		PlayerUUID: *player_holding_card_uuid,
-		Cards:      *cards,
-	}
+		var req_body SuggestionRequest
 
-	c.IndentedJSON(http.StatusOK, resp)
+		err := c.ShouldBindJSON(&req_body)
+		if err != nil {
+			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Failed to marshall JSON"})
+			return
+		}
+
+		_, ok = lobby.Players[req_body.PlayerUUID]
+
+		// quit if player requesting suggestion is invalid
+		if !ok {
+			c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Player not found"})
+			return
+		}
+
+		// quit if the player requesting suggestion is not the current player
+		if req_body.PlayerUUID != lobby.GameState.CurrentPlayerUUID {
+			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not this user's turn"})
+			return
+		}
+
+		player_holding_card_uuid, cards := findCard(req_body, lobby.GameState)
+
+		if player_holding_card_uuid == nil {
+			resp := SuggestionResponse{
+				Msg:        "Card not found",
+				PlayerUUID: "null",
+				Cards:      []string{},
+			}
+
+			c.IndentedJSON(http.StatusNotFound, resp)
+			return
+		}
+
+		resp := SuggestionResponse{
+			Msg:        "Card Found",
+			PlayerUUID: *player_holding_card_uuid,
+			Cards:      *cards,
+		}
+
+		c.IndentedJSON(http.StatusOK, resp)
+	}
 }
 
 func findCard(req_body SuggestionRequest, gamestate *GameState) (*string, *[]string) {
@@ -314,42 +329,47 @@ type DiceRollResponse struct {
 	DiceRoll int `json:"dice_roll"`
 }
 
-func roll_dice(c *gin.Context) {
-	lobby_uuid := c.Param("lobby_uuid")
-	player_uuid := c.Param("player_uuid")
+func roll_dice(lobby_manager *LobbyManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		lobby_manager.mu.RLock()
+		defer lobby_manager.mu.RUnlock()
 
-	lobby, ok := lobbies[lobby_uuid]
+		lobby_uuid := c.Param("lobby_uuid")
+		player_uuid := c.Param("player_uuid")
 
-	// quit if lobby not found
-	if !ok {
-		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
-		return
+		lobby, ok := lobby_manager.Lobbies[lobby_uuid]
+
+		// quit if lobby not found
+		if !ok {
+			c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+			return
+		}
+
+		// quit if game not created
+		if lobby.GameState == nil {
+			c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Game not found"})
+			return
+		}
+
+		_, ok = lobby.Players[player_uuid]
+
+		// quit if player not found
+		if !ok {
+			c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Player not found"})
+			return
+		}
+
+		if player_uuid != lobby.GameState.CurrentPlayerUUID {
+			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not this player's turn"})
+			return
+		}
+
+		dice_roll := rand.IntN(lobby.Options.NoDiceFaces) + 1 // generates from [0,n) so + 1 to get [1,n]
+
+		resp := DiceRollResponse{
+			DiceRoll: dice_roll,
+		}
+
+		c.IndentedJSON(http.StatusOK, resp)
 	}
-
-	// quit if game not created
-	if lobby.GameState == nil {
-		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Game not found"})
-		return
-	}
-
-	_, ok = lobby.Players[player_uuid]
-
-	// quit if player not found
-	if !ok {
-		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Player not found"})
-		return
-	}
-
-	if player_uuid != lobby.GameState.CurrentPlayerUUID {
-		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not this player's turn"})
-		return
-	}
-
-	dice_roll := rand.IntN(lobby.Options.NoDiceFaces) + 1 // generates from [0,n) so + 1 to get [1,n]
-
-	resp := DiceRollResponse{
-		DiceRoll: dice_roll,
-	}
-
-	c.IndentedJSON(http.StatusOK, resp)
 }
