@@ -44,12 +44,14 @@ func get_player(c *gin.Context) {
 
 	if !ok {
 		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+		return
 	}
 
 	player, ok := lobby.Players[player_uuid]
 
 	if !ok {
 		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Player not found"})
+		return
 	}
 
 	c.IndentedJSON(http.StatusOK, player)
