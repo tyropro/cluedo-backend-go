@@ -28,6 +28,8 @@ type LobbyOptions struct {
 	Characters [MAX_CHARACTERS]string `json:"character"`
 	Weapons    [MAX_WEAPONS]string    `json:"weapons"`
 	Rooms      [MAX_ROOMS]string      `json:"rooms"`
+
+	NoDiceFaces int `json:"no_dice_faces"`
 }
 
 func NewLobby(lobby_uuid string) Lobby {
@@ -72,6 +74,7 @@ func DefaultLobbyOptions() LobbyOptions {
 			"Lounge",
 			"Study",
 		},
+		NoDiceFaces: 6,
 	}
 }
 

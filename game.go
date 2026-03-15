@@ -321,3 +321,47 @@ func findCard(req_body SuggestionRequest, gamestate *GameState) (*string, *[]str
 
 	return nil, nil
 }
+
+type DiceRollResponse struct {
+	DiceRoll int `json:"dice_roll"`
+}
+
+func roll_dice(c *gin.Context) {
+	lobby_uuid := c.Param("lobby_uuid")
+	player_uuid := c.Param("player_uuid")
+
+	lobby, ok := lobbies[lobby_uuid]
+
+	// quit if lobby not found
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Lobby not found"})
+		return
+	}
+
+	// quit if game not created
+	if lobby.GameState == nil {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Game not found"})
+		return
+	}
+
+	_, ok = lobby.Players[player_uuid]
+
+	// quit if player not found
+	if !ok {
+		c.IndentedJSON(http.StatusNotFound, errResp{Msg: "Player not found"})
+		return
+	}
+
+	if player_uuid != lobby.GameState.CurrentPlayerUUID {
+		c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not this player's turn"})
+		return
+	}
+
+	dice_roll := rand.IntN(lobby.Options.NoDiceFaces) + 1 // generates from [0,n) so + 1 to get [1,n]
+
+	resp := DiceRollResponse{
+		DiceRoll: dice_roll,
+	}
+
+	c.IndentedJSON(http.StatusOK, resp)
+}
