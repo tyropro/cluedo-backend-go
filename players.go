@@ -80,6 +80,11 @@ func create_player(lobby_manager *LobbyManager) gin.HandlerFunc {
 			return
 		}
 
+		if lobby.GameState != nil {
+			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Game already in progress"})
+			return
+		}
+
 		// stop player addition if lobby full
 		if len(lobby.Players) >= MAX_LOBBY_SIZE {
 			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Lobby full"})

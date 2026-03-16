@@ -16,7 +16,7 @@ const MAX_LOBBY_SIZE int = MAX_CHARACTERS
 
 type LobbyManager struct {
 	Lobbies map[string]Lobby `json:"lobbies"`
-	mu      sync.RWMutex     `json:"-"`
+	mu      sync.RWMutex     `json:"-"` // for read/write locking
 }
 
 type Lobby struct {
