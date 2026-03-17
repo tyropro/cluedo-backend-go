@@ -19,19 +19,6 @@ type LobbyManager struct {
 	mu      sync.RWMutex     `json:"-"` // for read/write locking
 }
 
-func (m *LobbyManager) checkLobbyExists(lobby_uuid string) (*Lobby, *errResp) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	lobby, ok := m.Lobbies[lobby_uuid]
-
-	if !ok {
-		return nil, &errResp{Msg: "Lobby not found"}
-	}
-
-	return &lobby, nil
-}
-
 type Lobby struct {
 	UUID string `json:"uuid"`
 
@@ -41,19 +28,6 @@ type Lobby struct {
 
 	Options   LobbyOptions `json:"options"`
 	GameState *GameState   `json:"game_state"`
-}
-
-func (l *Lobby) checkPlayerExists(lobby_manager *LobbyManager, player_uuid string) (*Player, *errResp) {
-	lobby_manager.mu.RLock()
-	defer lobby_manager.mu.RUnlock()
-
-	player, ok := l.Players[player_uuid]
-
-	if !ok {
-		return nil, &errResp{Msg: "Player not found"}
-	}
-
-	return &player, nil
 }
 
 type LobbyOptions struct {
@@ -121,14 +95,49 @@ type GetLobbyResponse struct {
 	PlayerCount int    `json:"player_count"`
 }
 
+// for use with websockets as the lock only needs to stay on momentarily
+func (m *LobbyManager) CheckLobbyExists(lobby_uuid string) (*Lobby, *errResp) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	lobby, ok := m.Lobbies[lobby_uuid]
+
+	if !ok {
+		return nil, &errResp{Msg: "Lobby not found"}
+	}
+
+	return &lobby, nil
+}
+
+func (m *LobbyManager) CheckPlayerExists(lobby_uuid string, player_uuid string) (*Player, *errResp) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	lobby, ok := m.Lobbies[lobby_uuid]
+
+	if !ok {
+		return nil, &errResp{Msg: "Lobby not found"}
+	}
+
+	player, ok := lobby.Players[player_uuid]
+
+	if !ok {
+		return nil, &errResp{Msg: "Player not found"}
+	}
+
+	return &player, nil
+}
+
 func get_lobbies(lobby_manager *LobbyManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		lobby_manager.mu.RLock()
 		defer lobby_manager.mu.RUnlock()
 
+		lobbies := lobby_manager.Lobbies
+
 		var response []GetLobbyResponse
 
-		for uuid, lobby := range lobby_manager.Lobbies {
+		for uuid, lobby := range lobbies {
 			player_count := len(lobby.Players)
 
 			lobby_response := GetLobbyResponse{

@@ -50,14 +50,7 @@ func (m *WsManager) Broadcast(lobby_manager *LobbyManager, lobby_uuid string, me
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// for _, conn := range m.clients {
-	// 	err := conn.WriteMessage(websocket.TextMessage, []byte(message))
-	// 	if err != nil {
-	// 		log.Printf("Write error: %v\n", err)
-	// 	}
-	// }
-
-	lobby, _ := lobby_manager.checkLobbyExists(lobby_uuid)
+	lobby, _ := lobby_manager.CheckLobbyExists(lobby_uuid)
 
 	for player_uuid := range lobby.Players {
 		conn, ok := m.clients[player_uuid]
@@ -72,7 +65,7 @@ func (m *WsManager) Broadcast(lobby_manager *LobbyManager, lobby_uuid string, me
 	}
 }
 
-func (m *WsManager) checkClientExists(player_uuid string) bool {
+func (m *WsManager) CheckClientExists(player_uuid string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -93,14 +86,7 @@ func ws_handler(ws_manager *WsManager, lobby_manager *LobbyManager) gin.HandlerF
 		lobby_uuid := c.Param("lobby_uuid")
 		player_uuid := c.Param("player_uuid")
 
-		lobby, err_resp := lobby_manager.checkLobbyExists(lobby_uuid)
-
-		if err_resp != nil {
-			c.IndentedJSON(http.StatusNotFound, err_resp)
-			return
-		}
-
-		_, err_resp = lobby.checkPlayerExists(lobby_manager, player_uuid)
+		_, err_resp := lobby_manager.CheckPlayerExists(lobby_uuid, player_uuid)
 
 		if err_resp != nil {
 			c.IndentedJSON(http.StatusNotFound, err_resp)
@@ -113,9 +99,10 @@ func ws_handler(ws_manager *WsManager, lobby_manager *LobbyManager) gin.HandlerF
 			return
 		}
 
-		client_exists := ws_manager.checkClientExists(player_uuid)
+		client_exists := ws_manager.CheckClientExists(player_uuid)
 		if client_exists {
 			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: fmt.Sprintf("Client for player '%v' already connected.", player_uuid)})
+			return
 		}
 
 		ws_manager.Add(player_uuid, conn)
