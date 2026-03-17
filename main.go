@@ -40,7 +40,8 @@ func main() {
 	}
 
 	lobby_manager := NewLobbyManager()
-	router := setupRouter(lobby_manager)
+	ws_manager := NewWsManager()
+	router := setupRouter(lobby_manager, ws_manager)
 
 	// only allow loopback connections on dev
 	if !dev_mode || staging_mode {
@@ -57,7 +58,7 @@ func getEnv() (bool, bool) {
 	return dev_mode, staging_mode
 }
 
-func setupRouter(lobby_manager *LobbyManager) *gin.Engine {
+func setupRouter(lobby_manager *LobbyManager, ws_manager *WsManager) *gin.Engine {
 	router := gin.Default()
 
 	// lobby endpoints
@@ -80,6 +81,10 @@ func setupRouter(lobby_manager *LobbyManager) *gin.Engine {
 	router.POST("/lobbies/:lobby_uuid/roll/:player_uuid", roll_dice(lobby_manager))
 
 	router.DELETE("/lobbies/:lobby_uuid/game", delete_game(lobby_manager))
+
+	// ws endpoints
+	router.GET("/lobbies/:lobby_uuid/ws/:player_uuid", ws_handler(ws_manager, lobby_manager))
+	router.GET("/lobbies/:lobby_uuid/broadcast/:message", broadcast_handler(ws_manager, lobby_manager))
 
 	return router
 }

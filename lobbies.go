@@ -19,6 +19,19 @@ type LobbyManager struct {
 	mu      sync.RWMutex     `json:"-"` // for read/write locking
 }
 
+func (m *LobbyManager) checkLobbyExists(lobby_uuid string) (*Lobby, *errResp) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	lobby, ok := m.Lobbies[lobby_uuid]
+
+	if !ok {
+		return nil, &errResp{Msg: "Lobby not found"}
+	}
+
+	return &lobby, nil
+}
+
 type Lobby struct {
 	UUID string `json:"uuid"`
 
@@ -28,6 +41,19 @@ type Lobby struct {
 
 	Options   LobbyOptions `json:"options"`
 	GameState *GameState   `json:"game_state"`
+}
+
+func (l *Lobby) checkPlayerExists(lobby_manager *LobbyManager, player_uuid string) (*Player, *errResp) {
+	lobby_manager.mu.RLock()
+	defer lobby_manager.mu.RUnlock()
+
+	player, ok := l.Players[player_uuid]
+
+	if !ok {
+		return nil, &errResp{Msg: "Player not found"}
+	}
+
+	return &player, nil
 }
 
 type LobbyOptions struct {
