@@ -272,7 +272,7 @@ func make_suggestion(lobby_manager *LobbyManager) gin.HandlerFunc {
 
 		// quit if the player requesting suggestion is not the current player
 		if req_body.PlayerUUID != lobby.GameState.CurrentPlayerUUID {
-			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not this user's turn"})
+			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not this players's turn"})
 			return
 		}
 
@@ -305,6 +305,7 @@ func findCard(req_body SuggestionRequest, gamestate *GameState) (*string, *[]str
 	var held_cards []string
 
 	for range len(gamestate.Players) - 1 { // limit number of checks to number of players - 1 (excluding original player)
+		// checks over every player's hand to see if they have the card
 		for _, card := range gamestate.Players[checking_player_uuid].Hand {
 			has_character := card == req_body.Cards.Character
 			has_weapon := card == req_body.Cards.Weapon
@@ -359,6 +360,7 @@ func roll_dice(lobby_manager *LobbyManager) gin.HandlerFunc {
 			return
 		}
 
+		// quit if the player requesting dice roll is not the current player
 		if player_uuid != lobby.GameState.CurrentPlayerUUID {
 			c.IndentedJSON(http.StatusBadRequest, errResp{Msg: "Not this player's turn"})
 			return
