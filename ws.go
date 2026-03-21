@@ -12,8 +12,8 @@ import (
 
 // websocket manager
 type WsManager struct {
-	clients map[string]*websocket.Conn
-	mu      sync.RWMutex // read/write lock
+	clients map[string]*websocket.Conn // player uuid links to a ws connection (this leads to only 1 ws connection being valid at once)
+	mu      sync.RWMutex               // read/write lock
 }
 
 func NewWsManager() *WsManager {
@@ -121,6 +121,7 @@ func ws_handler(ws_manager *WsManager, lobby_manager *LobbyManager) gin.HandlerF
 func broadcast_handler(ws_manager *WsManager, lobby_manager *LobbyManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		lobby_uuid := c.Param("lobby_uuid")
+		// TODO: change 'message' param to body from path
 		message := c.Param("message")
 		ws_manager.Broadcast(lobby_manager, lobby_uuid, message)
 		c.JSON(http.StatusOK, gin.H{"status": "sent", "message": message})

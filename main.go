@@ -12,25 +12,6 @@ type errResp struct {
 	Msg string `json:"msg"`
 }
 
-// var lobbies map[string]Lobby
-
-// all for dev as of now
-// START //
-// func init() {
-// 	lobbies = make(map[string]Lobby)
-
-// 	lobby_uuid := uuid.New().String()
-
-// 	new_lobby := NewLobby(lobby_uuid)
-
-// 	lobbies[lobby_uuid] = new_lobby
-
-// 	// print out for dev purposes
-// 	log.Println(lobby_uuid)
-// }
-
-// END //
-
 func main() {
 	dev_mode, staging_mode := getEnv()
 

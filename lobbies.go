@@ -31,6 +31,7 @@ type Lobby struct {
 }
 
 type LobbyOptions struct {
+	// TODO: consolidate these into a single 'cards' option
 	Characters [MAX_CHARACTERS]string `json:"character"`
 	Weapons    [MAX_WEAPONS]string    `json:"weapons"`
 	Rooms      [MAX_ROOMS]string      `json:"rooms"`
